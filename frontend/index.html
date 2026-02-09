@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Architecture Reviewer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen">
+  <header class="border-b border-gray-800 px-6 py-4">
+    <div class="max-w-6xl mx-auto flex items-center gap-3">
+      <span class="text-xl">🏗️</span>
+      <h1 class="text-xl font-semibold">AI Architecture Reviewer</h1>
+      <span class="text-xs text-gray-500 ml-auto">powered by Claude</span>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-6 py-8">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div class="space-y-4">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">System Type</label>
+            <select id="systemType" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm">
+              <option>Microservices API</option>
+              <option>Monolithic web app</option>
+              <option>Event-driven system</option>
+              <option>Data pipeline</option>
+              <option>Mobile backend</option>
+              <option>Real-time system</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">Scale Requirements</label>
+            <input id="scale" type="text" placeholder="e.g. 10k req/s, 1M users" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
+          </div>
+        </div>
+        <textarea id="designDoc" rows="18" placeholder="Paste your architecture design document, diagram description, or system design writeup..." class="w-full bg-gray-900 border border-gray-700 rounded-xl p-4 text-sm focus:outline-none focus:border-indigo-500 resize-none"></textarea>
+        <button onclick="review()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-3 rounded-lg transition-colors">Review Architecture</button>
+      </div>
+
+      <div id="result" class="hidden space-y-4 overflow-y-auto max-h-screen">
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-5 flex items-center gap-4">
+          <div id="scoreCircle" class="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold shrink-0 border-4"></div>
+          <div>
+            <div class="text-sm font-semibold mb-1">Overall Score</div>
+            <p id="summaryText" class="text-sm text-gray-400"></p>
+          </div>
+        </div>
+        <div id="concernsBox" class="space-y-2"></div>
+        <div class="grid grid-cols-1 gap-3">
+          <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+            <h4 class="text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-2">Strengths</h4>
+            <ul id="strengths" class="space-y-1"></ul>
+          </div>
+          <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+            <h4 class="text-xs font-semibold text-blue-400 uppercase tracking-wider mb-2">Scalability</h4>
+            <p id="scalabilityText" class="text-sm text-gray-300"></p>
+          </div>
+          <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+            <h4 class="text-xs font-semibold text-purple-400 uppercase tracking-wider mb-2">Reliability</h4>
+            <p id="reliabilityText" class="text-sm text-gray-300"></p>
+          </div>
+        </div>
+        <div id="questionsBox" class="bg-gray-900 border border-gray-800 rounded-xl p-4 hidden">
+          <h4 class="text-xs font-semibold text-yellow-400 uppercase tracking-wider mb-2">Questions to Consider</h4>
+          <ul id="questions" class="space-y-1"></ul>
+        </div>
+      </div>
+
+      <div id="loading" class="hidden lg:col-start-2 flex items-center justify-center py-20 text-gray-400">
+        <div class="text-center">
+          <div class="animate-spin rounded-full h-8 w-8 border-2 border-indigo-400 border-t-transparent mb-3 mx-auto"></div>
+          <p class="text-sm">Reviewing architecture…</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const API = '';
+    async function review() {
+      const doc = document.getElementById('designDoc').value.trim();
+      if (!doc) return;
+      document.getElementById('loading').classList.remove('hidden');
+      document.getElementById('result').classList.add('hidden');
+      try {
+        const res = await fetch(`${API}/review`, {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ design_doc: doc, system_type: document.getElementById('systemType').value, scale_requirements: document.getElementById('scale').value })
+        });
+        const d = await res.json();
+        if (!res.ok) throw new Error(d.detail);
+        renderResult(d);
+      } catch(e) { alert('Error: '+e.message); }
+      finally { document.getElementById('loading').classList.add('hidden'); }
+    }
+
+    function renderResult(d) {
+      const score = d.overall_score;
+      const sc = document.getElementById('scoreCircle');
+      sc.textContent = score;
+      sc.className = `w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold shrink-0 border-4 ${score >= 7 ? 'border-emerald-500 text-emerald-400' : score >= 4 ? 'border-yellow-500 text-yellow-400' : 'border-red-500 text-red-400'}`;
+      document.getElementById('summaryText').textContent = d.summary;
+
+      const sevColors = { critical: 'border-red-700 bg-red-950/40', major: 'border-orange-700 bg-orange-950/30', minor: 'border-yellow-700 bg-yellow-950/20' };
+      const sevLabel = { critical: 'bg-red-600 text-white', major: 'bg-orange-500 text-white', minor: 'bg-yellow-600 text-black' };
+      document.getElementById('concernsBox').innerHTML = d.concerns.map(c => `
+        <div class="border rounded-xl p-4 ${sevColors[c.severity] || sevColors.minor}">
+          <div class="flex gap-2 mb-2"><span class="text-xs px-2 py-0.5 rounded font-bold ${sevLabel[c.severity]}">${c.severity.toUpperCase()}</span><span class="text-sm font-medium">${c.issue}</span></div>
+          <p class="text-xs text-gray-400 mb-1">Impact: ${c.impact}</p>
+          <p class="text-xs text-gray-300">→ ${c.recommendation}</p>
+        </div>`).join('');
+      document.getElementById('strengths').innerHTML = d.strengths.map(s => `<li class="text-sm text-gray-300 flex gap-2"><span class="text-emerald-500">✓</span>${s}</li>`).join('');
+      document.getElementById('scalabilityText').textContent = d.scalability_analysis;
+      document.getElementById('reliabilityText').textContent = d.reliability_analysis;
+      if (d.questions_to_consider?.length) {
+        document.getElementById('questions').innerHTML = d.questions_to_consider.map(q => `<li class="text-sm text-yellow-200 flex gap-2"><span class="text-yellow-600">?</span>${q}</li>`).join('');
+        document.getElementById('questionsBox').classList.remove('hidden');
+      }
+      document.getElementById('result').classList.remove('hidden');
+    }
+  </script>
+</body>
+</html>
